@@ -1,4 +1,4 @@
-use crate::token::{Token, TokenType};
+use crate::Token;
 
 pub fn strip_comments(code: &str) -> String {
     let mut stripped = String::new();
@@ -20,25 +20,29 @@ pub fn tokenize(code: &str) -> Vec<Token> {
             command.chars().nth(4).unwrap(),
             command.chars().nth(9).unwrap(),
         ) {
-            ('.', '?') => tokens.push(Token::inc_ptr()),
-            ('?', '.') => tokens.push(Token::dec_ptr()),
-            ('.', '.') => tokens.push(Token::inc_val()),
-            ('!', '!') => tokens.push(Token::dec_val()),
-            ('!', '.') => tokens.push(Token::out()),
-            ('.', '!') => tokens.push(Token::acc_in()),
+            ('.', '?') => tokens.push(Token::IncPtr),
+            ('?', '.') => tokens.push(Token::DecPtr),
+            ('.', '.') => tokens.push(Token::IncVal),
+            ('!', '!') => tokens.push(Token::DecVal),
+            ('!', '.') => tokens.push(Token::Out),
+            ('.', '!') => tokens.push(Token::AccIn),
             ('!', '?') => {
                 stack.push(index);
-                tokens.push(Token::loop_begin(None));
+                tokens.push(Token::LoopBegin { referencing: 0 });
             }
-            ('?', '!') => tokens.push(Token::loop_end(stack.pop().unwrap())),
+            ('?', '!') => tokens.push(Token::LoopEnd {
+                referencing: stack.pop().unwrap(),
+            }),
             _ => {}
         }
         index += 1;
     }
     for index in 0..tokens.len() {
-        match tokens[index].referencing {
-            Some(referencing) => tokens[referencing] = Token::loop_begin(Some(index)),
-            None => {}
+        match tokens[index] {
+            Token::LoopEnd { referencing } => {
+                tokens[referencing] = Token::LoopBegin { referencing: index }
+            }
+            _ => {}
         }
     }
     tokens
@@ -47,15 +51,15 @@ pub fn tokenize(code: &str) -> Vec<Token> {
 pub fn to_blub(tokens: Vec<Token>) -> String {
     let mut result = String::new();
     for token in tokens {
-        result.push_str(match token.token_type {
-            TokenType::IncPtr => "Blub. Blub? ",
-            TokenType::DecPtr => "Blub? Blub. ",
-            TokenType::IncVal => "Blub. Blub. ",
-            TokenType::DecVal => "Blub! Blub! ",
-            TokenType::AccIn => "Blub. Blub! ",
-            TokenType::Out => "Blub! Blub. ",
-            TokenType::LoopBegin => "Blub! Blub? ",
-            TokenType::LoopEnd => "Blub? Blub! ",
+        result.push_str(match token {
+            Token::IncPtr => "Blub. Blub? ",
+            Token::DecPtr => "Blub? Blub. ",
+            Token::IncVal => "Blub. Blub. ",
+            Token::DecVal => "Blub! Blub! ",
+            Token::AccIn => "Blub. Blub! ",
+            Token::Out => "Blub! Blub. ",
+            Token::LoopBegin { referencing: _ } => "Blub! Blub? ",
+            Token::LoopEnd { referencing: _ } => "Blub? Blub! ",
         });
     }
     result

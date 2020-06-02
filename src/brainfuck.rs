@@ -1,4 +1,4 @@
-use crate::token::{Token, TokenType};
+use crate::Token;
 
 pub fn strip_comments(code: &str) -> String {
     let mut stripped = String::new();
@@ -16,17 +16,19 @@ pub fn tokenize(code: &str) -> Vec<Token> {
     let mut warned = false;
     for (index, character) in code.chars().enumerate() {
         match character {
-            '>' => tokens.push(Token::inc_ptr()),
-            '<' => tokens.push(Token::dec_ptr()),
-            '+' => tokens.push(Token::inc_val()),
-            '-' => tokens.push(Token::dec_val()),
-            ',' => tokens.push(Token::acc_in()),
-            '.' => tokens.push(Token::out()),
+            '>' => tokens.push(Token::IncPtr),
+            '<' => tokens.push(Token::DecPtr),
+            '+' => tokens.push(Token::IncVal),
+            '-' => tokens.push(Token::DecVal),
+            ',' => tokens.push(Token::AccIn),
+            '.' => tokens.push(Token::Out),
             '[' => {
-                tokens.push(Token::loop_begin(None));
+                tokens.push(Token::LoopBegin { referencing: 0 });
                 stack.push(index);
             }
-            ']' => tokens.push(Token::loop_end(stack.pop().unwrap())),
+            ']' => tokens.push(Token::LoopEnd {
+                referencing: stack.pop().unwrap(),
+            }),
             _ => {
                 if !warned {
                     println!("It seems that this code has not been stripped of comments. Loops may not work properly.");
@@ -39,9 +41,11 @@ pub fn tokenize(code: &str) -> Vec<Token> {
     // The simplest solution (which still leaves tokenization in O(n)) is to do a second pass where we set the correct
     // reference for any opening bracket by finding it through the closing one.
     for index in 0..tokens.len() {
-        match tokens[index].referencing {
-            Some(referencing) => tokens[referencing] = Token::loop_begin(Some(index)),
-            None => {}
+        match tokens[index] {
+            Token::LoopEnd { referencing } => {
+                tokens[referencing] = Token::LoopBegin { referencing: index }
+            }
+            _ => {}
         }
     }
     tokens
@@ -50,15 +54,15 @@ pub fn tokenize(code: &str) -> Vec<Token> {
 pub fn to_brainfuck(tokens: Vec<Token>) -> String {
     let mut result = String::new();
     for token in tokens {
-        result.push(match token.token_type {
-            TokenType::IncPtr => '>',
-            TokenType::DecPtr => '<',
-            TokenType::IncVal => '+',
-            TokenType::DecVal => '-',
-            TokenType::AccIn => ',',
-            TokenType::Out => '.',
-            TokenType::LoopBegin => '[',
-            TokenType::LoopEnd => ']',
+        result.push(match token {
+            Token::IncPtr => '>',
+            Token::DecPtr => '<',
+            Token::IncVal => '+',
+            Token::DecVal => '-',
+            Token::AccIn => ',',
+            Token::Out => '.',
+            Token::LoopBegin { referencing: _ } => '[',
+            Token::LoopEnd { referencing: _ } => ']',
         });
     }
     result

@@ -1,7 +1,16 @@
 mod blub;
 mod brainfuck;
-mod token;
-use token::{Token, TokenType};
+
+pub enum Token {
+    IncPtr,
+    DecPtr,
+    IncVal,
+    DecVal,
+    AccIn,
+    Out,
+    LoopBegin { referencing: usize },
+    LoopEnd { referencing: usize },
+}
 
 fn accept_input() -> u8 {
     use std::io::stdin;
@@ -19,26 +28,26 @@ fn run(code: Vec<Token>) {
     let mut ip = 0;
     while ip < code.len() {
         let instruction = code.get(ip).unwrap();
-        match instruction.token_type {
-            TokenType::IncPtr => {
+        match instruction {
+            Token::IncPtr => {
                 if dp >= data.len() - 1 {
                     data.extend(&[0]);
                 }
                 dp += 1;
             }
-            TokenType::DecPtr => dp -= 1,
-            TokenType::IncVal => data[dp] += 1,
-            TokenType::DecVal => data[dp] -= 1,
-            TokenType::AccIn => data[dp] = accept_input(),
-            TokenType::Out => print!("{}", char::from(data[dp])),
-            TokenType::LoopBegin => {
+            Token::DecPtr => dp -= 1,
+            Token::IncVal => data[dp] += 1,
+            Token::DecVal => data[dp] -= 1,
+            Token::AccIn => data[dp] = accept_input(),
+            Token::Out => print!("{}", char::from(data[dp])),
+            Token::LoopBegin { referencing } => {
                 if data[dp] == 0 {
-                    ip = instruction.referencing.unwrap();
+                    ip = *referencing;
                 }
             }
-            TokenType::LoopEnd => {
+            Token::LoopEnd { referencing } => {
                 if data[dp] != 0 {
-                    ip = instruction.referencing.unwrap();
+                    ip = *referencing;
                 }
             }
         }
